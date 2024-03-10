@@ -8,6 +8,7 @@ import { provide } from '@hilma/tools';
 import { useLocalStorage } from '@uidotdev/usehooks';
 
 type Guest = {
+  id: string,
   fullName: string,
   description?: string,
   side?: string,
@@ -29,15 +30,15 @@ const relations = ["משפחה", "חברים", "חברים של הורים"];
 
 const App: React.FC = () => {
   const [guests, setGuests] = useLocalStorage<Guest[]>("guests", []);
-  const { resetForm } = useForm()
+  const { resetForm } = useForm();
 
   useFormConfig<GuestForm>((form) => {
     form.onSubmit = handleFormSubmit;
-  }, [guests])
+  }, [setGuests])
 
   function handleFormSubmit(values: GuestForm) {
     const { firstName, lastName, side, relation, description } = values;
-    setGuests(prev => [...prev, { fullName: `${firstName} ${lastName}`, side, relation, description }])
+    setGuests(prev => [...prev, { id: crypto.randomUUID(), fullName: `${firstName} ${lastName}`, side, relation, description }])
     resetForm();
   }
 
@@ -81,8 +82,8 @@ const App: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody sx={{}}>
-              {guests.map(({ fullName, side, relation, description }, index) => (
-                <TableRow key={index}>
+              {guests.map(({id, fullName, side, relation, description }) => (
+                <TableRow key={id}>
                   <TableCell>{fullName}</TableCell>
                   <TableCell>{description}</TableCell>
                   <TableCell>{side}</TableCell>
