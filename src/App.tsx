@@ -1,11 +1,17 @@
-import './App.scss'
-import { Button, Stack, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
-import { exportToXlsx } from './functions/export-to-xlsx.function';
-import { FormProvider, FormRadioGroup, FormSubmitButton, FormTextInput, useForm, useFormConfig } from "@hilma/forms"
-
+import { useState } from 'react';
 import * as yup from 'yup';
+
+import DeleteIcon from '@mui/icons-material/Delete';
+import { IconButton, Button, Stack } from '@mui/material';
+import { DataGrid, GridCellEditStopParams, GridColDef, MuiEvent } from '@mui/x-data-grid';
+
+import { FormProvider, FormRadioGroup, FormSubmitButton, FormTextInput, useForm, useFormConfig } from "@hilma/forms"
 import { provide } from '@hilma/tools';
+
+import { exportToXlsx } from './functions/export-to-xlsx.function';
 import { useLocalStorage } from '@uidotdev/usehooks';
+
+import './App.scss'
 
 type Guest = {
   id: string,
@@ -30,11 +36,54 @@ const relations = ["משפחה", "חברים", "חברים של הורים"];
 
 const App: React.FC = () => {
   const [guests, setGuests] = useLocalStorage<Guest[]>("guests", []);
+  const [selectedGuests, setSelectedGuests] = useState<string[]>([])
   const { resetForm } = useForm();
+
+  const columns: GridColDef[] = [
+    {
+      field: 'fullName',
+      headerName: 'שם מלא',
+      width: 150,
+      editable: true,
+    },
+    {
+      field: 'description',
+      headerName: 'תיאור',
+      width: 150,
+      editable: true,
+    },
+    {
+      field: 'side',
+      headerName: 'צד',
+      width: 150,
+      editable: true,
+    },
+    {
+      field: 'relation',
+      headerName: 'קירבה',
+      width: 150,
+      editable: true,
+    }
+  ]
 
   useFormConfig<GuestForm>((form) => {
     form.onSubmit = handleFormSubmit;
   }, [setGuests])
+
+  function handleDelete() {
+    setGuests(prev => prev.filter(guest => !selectedGuests.includes(guest.id)))
+    setSelectedGuests([])
+  }
+
+  function handleCellEdit(params: GridCellEditStopParams, e: MuiEvent) {
+    setGuests(prev => {
+      const event = e as React.ChangeEvent<HTMLTextAreaElement>
+      const tempGuests = structuredClone(prev);
+      const guestIndex = tempGuests.findIndex(guest => guest.id === params.id);
+      tempGuests[guestIndex][params.field as keyof Guest] = event.target.value;
+      return tempGuests;
+    })
+  }
 
   function handleFormSubmit(values: GuestForm) {
     const { firstName, lastName, side, relation, description } = values;
@@ -71,27 +120,20 @@ const App: React.FC = () => {
           />
           <FormSubmitButton children="הוספה" variant='outlined' />
         </Stack>
-        <Stack height="80%" className='table_container'>
-          <Table stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell>שם מלא</TableCell>
-                <TableCell>תיאור</TableCell>
-                <TableCell>צד</TableCell>
-                <TableCell>קירבה</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody sx={{}}>
-              {guests.map(({id, fullName, side, relation, description }) => (
-                <TableRow key={id}>
-                  <TableCell>{fullName}</TableCell>
-                  <TableCell>{description}</TableCell>
-                  <TableCell>{side}</TableCell>
-                  <TableCell>{relation}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <Stack position="relative" height="80%" className='table_container'>
+          <DataGrid
+            rows={guests}
+            columns={columns}
+            onCellEditStop={handleCellEdit}
+            onRowSelectionModelChange={(selectedGuests) => setSelectedGuests(selectedGuests as string[])}
+            hideFooterPagination
+            checkboxSelection
+          />
+          {selectedGuests.length &&
+            <IconButton sx={{ position: "absolute", top: "2%", right: "2%" }} onClick={handleDelete} >
+              <DeleteIcon />
+            </IconButton>
+          }
         </Stack>
         <Stack height="30%" gap="10%">
           <Button color='primary' variant='outlined' onClick={() => exportToXlsx(convertToHebrew(guests))} >
